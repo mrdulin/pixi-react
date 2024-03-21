@@ -1,16 +1,11 @@
-import React from 'react';
-import { Application } from '@pixi/app';
-import { Container as PixiContainer } from '@pixi/display';
-import renderer, { act } from 'react-test-renderer';
 import * as reactTest from '@testing-library/react';
-import { PixiFiber } from '../src';
-import { Container, Stage, Text } from '../src';
-import { Context } from '../src/stage/provider';
+import { Application, Container as PixiContainer } from 'pixi.js';
+import React from 'react';
+import renderer, { act } from 'react-test-renderer';
+import { Container, PixiFiber, Stage, Text } from '../src';
 import { getCanvasProps } from '../src/stage';
+import { Context } from '../src/stage/provider';
 import { mockToSpy } from './__utils__/mock';
-
-// add events extension
-import '@pixi/events';
 
 jest.mock('../src/reconciler');
 jest.useFakeTimers({
@@ -54,50 +49,59 @@ describe('stage', () =>
         expect(tree).toMatchSnapshot();
     });
 
-    test('renders null if view is passed in options', () =>
+    test('renders null if canvas is passed in options', () =>
     {
         const options = {
-            view: document.createElement('canvas'),
+            canvas: document.createElement('canvas'),
         };
         const tree = renderer.create(<Stage options={options} />).toJSON();
 
         expect(tree).toBeNull();
     });
 
-    test('use autoDensity by default', () =>
+    test('use autoDensity by default', async () =>
     {
-        const renderAutoDensity = (options) =>
-            renderer
+        const renderAutoDensity = async (options) =>
+        {
+            const r = renderer
                 .create(
                     <Stage
                         options={{
-                            view: document.createElement('canvas'),
+                            canvas: document.createElement('canvas'),
                             ...options,
                         }}
                     />
-                )
-                .getInstance().app.renderer.options.autoDensity;
+                );
 
-        expect(renderAutoDensity({})).toBeTruthy();
-        expect(renderAutoDensity({ autoDensity: false })).toBeFalsy();
+            const instance = r.getInstance();
+
+            await instance.appReady.promise;
+
+            return instance.app.renderer._initOptions.autoDensity;
+        };
+
+        expect(await renderAutoDensity({})).toBeTruthy();
+        expect(await renderAutoDensity({ autoDensity: false })).toBeFalsy();
     });
 
-    test('validate options.view', () =>
+    test('validate options.canvas', () =>
     {
-        const options = { view: 123 };
+        const options = { canvas: 123 };
 
         expect(() => renderer.create(<Stage options={options} />).toJSON()).toThrow(
-            'options.view needs to be a `HTMLCanvasElement`'
+            'options.canvas needs to be a `HTMLCanvasElement`'
         );
     });
 
-    test('passes options.view to Application', () =>
+    test('passes options.canvas to Application', async () =>
     {
-        const view = document.createElement('canvas');
-        const el = renderer.create(<Stage options={{ view }} />);
-        const app = el.getInstance().app;
+        const canvas = document.createElement('canvas');
+        const el = renderer.create(<Stage options={{ canvas }} />);
+        const instance = el.getInstance();
 
-        expect(app.view).toBe(view);
+        await instance.appReady.promise;
+
+        expect(instance.app.canvas).toBe(canvas);
     });
 
     test('passes props to canvas element', () =>
@@ -120,24 +124,29 @@ describe('stage', () =>
         expect(tree.props).toEqual({});
     });
 
-    test('creates a Application with passed options', () =>
+    test('creates a Application with passed options', async () =>
     {
         const el = renderer.create(<Stage width={100} height={50} options={{ backgroundColor: 0xff0000 }} />);
+        const instance = el.getInstance();
         const app = el.getInstance().app;
+
+        await instance.appReady.promise;
 
         expect(app.stage).toBeInstanceOf(PixiContainer);
         expect(app).toBeInstanceOf(Application);
-        expect(app.renderer.options).toMatchObject({
+        expect(app.renderer['_initOptions']).toMatchObject({
             backgroundColor: 0xff0000,
             width: 100,
             height: 50,
         });
     });
 
-    test('resize renderer when dimensions change', () =>
+    test('resize renderer when dimensions change', async () =>
     {
         const el = renderer.create(<Stage width={100} height={100} />);
         const app = el.getInstance().app;
+
+        await el.getInstance().appReady.promise;
 
         expect(app.renderer).toHaveProperty('width', 100);
         expect(app.renderer).toHaveProperty('height', 100);
@@ -155,11 +164,13 @@ describe('stage', () =>
         expect(app.renderer).toHaveProperty('height', 100);
     });
 
-    test('call onMount()', () =>
+    test('call onMount()', async () =>
     {
         const spy = jest.fn();
 
-        renderer.create(<Stage onMount={spy} />);
+        const el = renderer.create(<Stage onMount={spy} />);
+
+        await el.getInstance().appReady.promise;
 
         expect(spy).toHaveBeenCalledTimes(1);
         expect(spy.mock.calls[0]).toHaveLength(1);
@@ -437,9 +448,9 @@ describe('stage', () =>
                 window.devicePixelRatio = res;
                 mq();
                 expect(app.renderer.resolution).toEqual(res);
-                expect(app.view.getAttribute('style')).toEqual('width: 800px; height: 600px;');
-                expect(app.view.width).toEqual(800 * res);
-                expect(app.view.height).toEqual(600 * res);
+                expect(app.canvas.getAttribute('style')).toEqual('width: 800px; height: 600px;');
+                expect(app.canvas.width).toEqual(800 * res);
+                expect(app.canvas.height).toEqual(600 * res);
             };
 
             for (let i = 1; i <= 10; i++)

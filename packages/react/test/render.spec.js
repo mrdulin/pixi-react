@@ -1,4 +1,4 @@
-import { Application } from '@pixi/app';
+import { Application } from 'pixi.js';
 import React from 'react';
 import { act } from 'react-dom/test-utils';
 import { roots, render, createRoot } from '../src/render';
@@ -32,6 +32,11 @@ jest.mock('../src/reconciler', () => ({
 
 describe('render', () =>
 {
+    beforeAll(async () =>
+    {
+        await app.init();
+    });
+
     beforeEach(() =>
     {
         roots.clear();

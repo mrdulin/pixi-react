@@ -1,9 +1,8 @@
+import * as reactTest from '@testing-library/react';
+import { Application, Ticker } from 'pixi.js';
 import React, { useCallback, useEffect, useRef } from 'react';
 import renderer, { act } from 'react-test-renderer';
-import * as reactTest from '@testing-library/react';
-import { Application } from '@pixi/app';
-import { Ticker } from '@pixi/ticker';
-import { Container, Stage, useTick, useApp } from '../src';
+import { Container, Stage, useApp, useTick } from '../src';
 
 jest.useFakeTimers({
     doNotFake: ['performance']
@@ -64,9 +63,15 @@ describe('hooks', () =>
         const App = ({ children, cb }) =>
         {
             const app = useRef();
-            const setApp = useCallback((_) => (app.current = _), []);
+            const setApp = useCallback((_) =>
+            {
+                app.current = _;
+            }, []);
 
-            useEffect(() => cb(app.current), [app.current]);
+            useEffect(() =>
+            {
+                cb(app.current);
+            }, [app.current]);
 
             return <Stage onMount={setApp}>{children}</Stage>;
         };
@@ -95,7 +100,7 @@ describe('hooks', () =>
             );
         });
 
-        test('mount & unmount', () =>
+        test('mount & unmount', async () =>
         {
             const Comp = () =>
             {
@@ -124,7 +129,10 @@ describe('hooks', () =>
             {
                 render = renderer.create(unmount());
             });
-            const app = render.getInstance().app;
+
+            const { app, appReady } = render.getInstance();
+
+            await appReady.promise;
 
             jest.spyOn(app.ticker, 'add');
             jest.spyOn(app.ticker, 'remove');
@@ -153,7 +161,7 @@ describe('hooks', () =>
             expect(app.ticker.remove).toHaveBeenCalledTimes(1);
         });
 
-        test('update state', () =>
+        test.only('update state', () =>
         {
             const fn = jest.fn();
 
